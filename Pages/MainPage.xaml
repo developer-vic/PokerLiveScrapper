@@ -11,11 +11,11 @@
 
             <!-- Header -->
             <Label x:Name="AppTitleLabel"
-                   Text="Bigo Live Scrapper"
+                   Text="Poker Live Scrapper"
                    Style="{StaticResource Headline}"
                    HorizontalOptions="Center"/>
             <Label Text="programmergwin.com"
-                   TextColor="Blue"
+                   TextColor="{StaticResource AccentHighlight}"
                    Margin="0,0,0,10"
                    TextDecorations="Underline"
                    HorizontalOptions="End">
@@ -26,14 +26,14 @@
 
             <!-- Accessibility Status -->
             <Border
-                Stroke="#E0E0E0"
+                Stroke="{StaticResource AccentMuted}"
                 StrokeThickness="1"
-                BackgroundColor="White"
+                BackgroundColor="{StaticResource White}"
                 Padding="15,5">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Accessibility Status"
                            FontAttributes="Bold"
-                           TextColor="#1F4F5B"/>
+                           TextColor="{StaticResource Primary}"/>
                     <Label x:Name="StatusLabel"
                            Text="Checking..."
                            FontAttributes="Bold"/>
@@ -46,12 +46,12 @@
 
             <!-- User ID Input Text="euucamilaa" -->
             <VerticalStackLayout Spacing="10">
-                <Label Text="Enter User ID to Scrape:"
+                <Label Text="Enter Live Name to Scrape:"
                        FontAttributes="Bold"
                        FontSize="16"
                        TextColor="{StaticResource Primary}"/>
                 <Entry x:Name="UserIdEntry"
-                       Placeholder="Enter Bigo Live user ID"
+                       Placeholder="Enter Poker Live live name"
                        FontSize="16"
                        HeightRequest="50"/>
             </VerticalStackLayout>
@@ -59,8 +59,8 @@
             <!-- START Button -->
             <Button x:Name="StartScrapingBtn"
                     Text="START"
-                    BackgroundColor="#1F4F5B"
-                    TextColor="White"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="{StaticResource PrimaryDarkText}"
                     Margin="0,10"
                     HeightRequest="50"
                     FontSize="18"
@@ -83,11 +83,11 @@
                        FontSize="16"
                        TextColor="{StaticResource Primary}"/>
                 <Border
-                    Stroke="{StaticResource Primary}"
+                    Stroke="{StaticResource AccentHighlight}"
                     StrokeThickness="2"
                     StrokeShape="RoundRectangle 10"
                     Padding="15"
-                    BackgroundColor="White">
+                    BackgroundColor="{StaticResource White}">
                     <VerticalStackLayout Spacing="10">
                         <ScrollView
                             HeightRequest="200"
@@ -96,8 +96,7 @@
                             <Label
                                 x:Name="JsonResponseLabel"
                                 Text=""
-                                FontSize="14"
-                                FontFamily="Courier"
+                                FontSize="14" 
                                 TextColor="{StaticResource Black}"/>
                         </ScrollView>
                         <Grid ColumnDefinitions="*,*"
@@ -107,6 +106,7 @@
                                 Text="📋 Copy"
                                 Clicked="OnCopyJsonClicked"
                                 BackgroundColor="{StaticResource Primary}"
+                                TextColor="{StaticResource PrimaryDarkText}"
                                 Margin="0,10,0,0"/>
                             <Button
                                 Grid.Column="1"

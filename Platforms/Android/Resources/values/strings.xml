@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PokerLiveScrapper</string>
+    <string name="app_name">PokerLiveScrapper</string> 
     <string name="accessibility_service_description">PokerLiveScrapper Automation Service - Allows automated interaction with other apps for testing purposes.</string>
 </resources>

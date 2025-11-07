@@ -40,21 +40,13 @@ namespace PokerLiveScrapper.Platforms.Android
                         return false;
                     }
 
-                    // Try multiple possible service name formats
-                    var possibleServiceNames = new[]
+                    string serviceName = VConstants.POKER_LIVE_SCRAPER_PACKAGE + "/" + VConstants.POKER_LIVE_SERVICE_ID + ".AutomationAccessibilityService";
+                    if (enabledServices.Contains(serviceName))
                     {
-                        VConstants.BIGO_LIVE_SCRAPPER_PACKAGE + "/crc641154dc6b6e1fbd62.AutomationAccessibilityService"
-                    };
-
-                    foreach (var serviceName in possibleServiceNames)
-                    {
-                        if (enabledServices.Contains(serviceName))
-                        {
-                            System.Diagnostics.Debug.WriteLine($"AndroidAutomationService: Found service: {serviceName}");
-                            return true;
-                        }
+                        System.Diagnostics.Debug.WriteLine($"AndroidAutomationService: Found service: {serviceName}");
+                        return true;
                     }
-
+                    
                     System.Diagnostics.Debug.WriteLine("AndroidAutomationService: Service not found in enabled services");
                     return false;
                 }
@@ -82,8 +74,8 @@ namespace PokerLiveScrapper.Platforms.Android
 
                     // Add component name to try to go directly to our service
                     var componentName = new ComponentName(
-                        VConstants.BIGO_LIVE_SCRAPPER_PACKAGE,
-                        "restaurantpostgenerator.platforms.android.AutomationAccessibilityService");
+                        VConstants.POKER_LIVE_SCRAPER_PACKAGE,
+                        VConstants.POKER_LIVE_SCRAPER_NAME + ".platforms.android.AutomationAccessibilityService");
                     intent.PutExtra("component_name", componentName.FlattenToString());
 
                     context.StartActivity(intent);
@@ -103,7 +95,7 @@ namespace PokerLiveScrapper.Platforms.Android
                 try
                 {
                     intent = new Intent(Settings.ActionApplicationDetailsSettings);
-                    intent.SetData(global::Android.Net.Uri.Parse("package:" + VConstants.BIGO_LIVE_SCRAPPER_PACKAGE));
+                    intent.SetData(global::Android.Net.Uri.Parse("package:" + VConstants.POKER_LIVE_SCRAPER_PACKAGE));
                     intent.SetFlags(ActivityFlags.NewTask);
                     context.StartActivity(intent);
                     await Task.Delay(1000);

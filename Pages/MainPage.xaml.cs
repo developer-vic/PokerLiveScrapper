@@ -47,7 +47,7 @@ public partial class MainPage : ContentPage
 
 	private void GetAppVersionNumber()
 	{
-		AppTitleLabel.Text = $"Bigo Live Scrapper v{AppInfo.VersionString}";
+        AppTitleLabel.Text = $"Poker Live Scrapper v{AppInfo.VersionString}";
 		UpdateStatus();
 	}
 
@@ -63,7 +63,7 @@ public partial class MainPage : ContentPage
 				// Service is enabled, ask user to disable it
 				var result = await DisplayAlert(
 					"Disable Accessibility Service",
-					"This will open the Accessibility Settings. Please find 'Bigo Live Scrapper' and toggle it OFF.",
+                    "This will open the Accessibility Settings. Please find 'Poker Live Scrapper' and toggle it OFF.",
 					"Open Settings",
 					"Cancel"
 				);
@@ -132,19 +132,21 @@ public partial class MainPage : ContentPage
 		var isEnabled = _accessibilityService.IsAccessibilityServiceEnabled;
 		StatusLabel.Text = $"Accessibility Service Status: {(isEnabled ? "ENABLED" : "DISABLED")}";
 
-		StatusLabel.TextColor = isEnabled ? Colors.Green : Colors.Red;
+        StatusLabel.TextColor = isEnabled
+            ? Color.FromArgb("#0B6E4F")
+            : Color.FromArgb("#C84B31");
 
 		// Update button text and color based on status
 		if (isEnabled)
 		{
-			EnableAccessibilityBtn.Text = "Disable";
-			EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#E74C3C"); // Red color
+            EnableAccessibilityBtn.Text = "Disable";
+            EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#C84B31"); // Ember red
 			StartScrapingBtn.IsEnabled = true;
 		}
 		else
 		{
-			EnableAccessibilityBtn.Text = "Enable";
-			EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#D4B25A"); // Gold color
+            EnableAccessibilityBtn.Text = "Enable";
+            EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#F4E285"); // Warm gold
 			StartScrapingBtn.IsEnabled = false;
 		}
 

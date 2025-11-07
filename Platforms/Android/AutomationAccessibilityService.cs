@@ -49,7 +49,7 @@ namespace PokerLiveScrapper.Platforms.Android
             {
                 // Log significant events for debugging
                 if (e.EventType == EventTypes.WindowStateChanged ||
-                    e.EventType == EventTypes.WindowContentChanged && e.PackageName == "com.linkedin.android")
+                    e.EventType == EventTypes.WindowContentChanged && e.PackageName == VConstants.POKER_LIVE_APP_PACKAGE)
                 {
                     System.Diagnostics.Debug.WriteLine($"AutomationAccessibilityService: {e.EventType} in {e.PackageName}");
                 }
@@ -521,7 +521,7 @@ namespace PokerLiveScrapper.Platforms.Android
                     Thread.Sleep(1000);
                     if (RootInActiveWindow != null)
                     {
-                        var tabFeed = FindNodeByResourceId(RootInActiveWindow, BigoLiveSConstants.SEARCH_BUTTON_ID);
+                        var tabFeed = FindNodeByResourceId(RootInActiveWindow, PokerLiveSConstants.SEARCH_BUTTON_ID);
                         if (tabFeed != null)
                         {
                             if (stopAtHome) break; //for starting operation
@@ -545,7 +545,7 @@ namespace PokerLiveScrapper.Platforms.Android
                         Thread.Sleep(100);
                     }
                     //launch this app package name just once
-                    CheckForegroundAndLaunchApp(VConstants.BIGO_LIVE_SCRAPPER_PACKAGE);
+                    CheckForegroundAndLaunchApp(VConstants.POKER_LIVE_SCRAPER_PACKAGE);
                 }
 
                 return true;
@@ -712,7 +712,7 @@ namespace PokerLiveScrapper.Platforms.Android
             {
                 packagesToCheck =
                 [
-                    VConstants.BIGO_LIVE_APP_PACKAGE
+                    VConstants.POKER_LIVE_APP_PACKAGE
                 ];
             }
             else
@@ -1454,7 +1454,7 @@ namespace PokerLiveScrapper.Platforms.Android
                     catch (Exception ex)
                     {
                         // If we can't check bounds, skip this node
-                        System.Diagnostics.Debug.WriteLine($"BigoLiveAutomation: Error checking node visibility: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Error checking node visibility: {ex.Message}");
                         continue;
                     }
                 }
@@ -1487,7 +1487,7 @@ namespace PokerLiveScrapper.Platforms.Android
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"BigoLiveAutomation: Error filtering visible nodes: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Error filtering visible nodes: {ex.Message}");
                 return nodes ?? new List<AccessibilityNodeInfo>();
             }
         }

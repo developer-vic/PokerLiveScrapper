@@ -39,7 +39,7 @@
 		</provider>
 		<!-- Accessibility Service -->
 		<service
-			android:name="PokerLiveScrapper.platforms.android.AutomationAccessibilityService"
+			android:name="PokerLiveScrapper.Platforms.Android.AutomationAccessibilityService"
 			android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
 			android:exported="true"
 			android:label="@string/app_name">
@@ -92,9 +92,9 @@
 			<data android:mimeType="*/*" />
 		</intent>
 		<!-- Package names -->  
-		<!-- Google Maps -->
-		<package android:name="sg.bigo.live" />
-		<package android:name="sg.bigo.live.home.MainActivity" />
+		<!-- Poker Live app -->
+		<package android:name="com.grosvenor.casino.pokerlive" />
+		<package android:name="com.grosvenor.casino.pokerlive.MainActivity" />
 		<!-- Settings app -->
 		<package android:name="com.android.settings" />
 		<!-- Query for apps with launcher intent --> 

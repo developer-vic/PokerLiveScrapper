@@ -1,15 +1,18 @@
+using System.Threading;
 using PokerLiveScrapper.Automations;
 using PokerLiveScrapper.Platforms.Android;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PokerLiveScrapper.Services
 {
     /// <summary>
-    /// Centralized service to manage Bigo Live scraping automation
+    /// Centralized service to manage Poker Live scraping automation
     /// </summary>
     public class AutomationService
     {
         private readonly AutomationAccessibilityService _accessibilityService;
-        private BigoLiveAutomation? _bigoLiveAutomation;
+        private PokerLiveAutomation? _pokerLiveAutomation;
 
         public AutomationService()
         {
@@ -22,7 +25,7 @@ namespace PokerLiveScrapper.Services
         /// </summary>
         public void Initialize()
         {
-            _bigoLiveAutomation = new BigoLiveAutomation(_accessibilityService);
+            _pokerLiveAutomation = new PokerLiveAutomation(_accessibilityService);
         }
 
         /// <summary>
@@ -32,14 +35,14 @@ namespace PokerLiveScrapper.Services
         {
             System.Diagnostics.Debug.WriteLine("AutomationService: Starting scraping automation");
 
-            if (_bigoLiveAutomation == null)
+            if (_pokerLiveAutomation == null)
             {
                 Initialize();
             }
 
-            if (_bigoLiveAutomation == null)
+            if (_pokerLiveAutomation == null)
             {
-                return (false, "BigoLive automation not initialized", "");
+                return (false, "PokerLive automation not initialized", "");
             }
 
             try
@@ -52,7 +55,7 @@ namespace PokerLiveScrapper.Services
 
                 System.Diagnostics.Debug.WriteLine($"AutomationService: Running scraping for user ID: {userId}");
                 
-                var result = await _bigoLiveAutomation.ScrapeAsync(userId, cancellationToken);
+                var result = await _pokerLiveAutomation.ScrapeAsync(userId, cancellationToken);
                 
                 // Check if cancelled after completion
                 if (cancellationToken.IsCancellationRequested)
