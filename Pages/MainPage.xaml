@@ -56,6 +56,23 @@
                        HeightRequest="50"/>
             </VerticalStackLayout>
 
+            <!-- Tournament Type Selection -->
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Select Tournament List:"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="{StaticResource Primary}"/>
+                <Picker x:Name="TournamentTypePicker"
+                        Title="Choose list"
+                        FontSize="16"
+                        HeightRequest="50">
+                    <Picker.Items>
+                        <x:String>Tournaments</x:String>
+                        <x:String>Previous Tournaments</x:String>
+                    </Picker.Items>
+                </Picker>
+            </VerticalStackLayout>
+
             <!-- START Button -->
             <Button x:Name="StartScrapingBtn"
                     Text="START"

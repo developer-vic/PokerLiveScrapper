@@ -33,24 +33,25 @@ namespace PokerLiveScrapper.Platforms.Android
                         Settings.Secure.EnabledAccessibilityServices);
 
                     System.Diagnostics.Debug.WriteLine($"AndroidAutomationService: All enabled services: '{enabledServices}'");
-
                     if (string.IsNullOrEmpty(enabledServices))
                     {
                         System.Diagnostics.Debug.WriteLine("AndroidAutomationService: No enabled services found");
                         return false;
                     }
 
-                    string serviceName = VConstants.POKER_LIVE_SCRAPER_PACKAGE + "/" + VConstants.POKER_LIVE_SERVICE_ID + ".AutomationAccessibilityService";
+                    //com.programmergwin.pokerlivescrapper/PokerLiveScrapper.Platforms.Android.AutomationAccessibilityService
+                    //string serviceName = VConstants.POKER_LIVE_SCRAPER_PACKAGE + "/" + VConstants.POKER_LIVE_SERVICE_ID + ".AutomationAccessibilityService";
+                    string serviceName = VConstants.POKER_LIVE_SCRAPER_PACKAGE + "/PokerLiveScrapper.Platforms.Android.AutomationAccessibilityService";
                     if (enabledServices.Contains(serviceName))
                     {
                         System.Diagnostics.Debug.WriteLine($"AndroidAutomationService: Found service: {serviceName}");
                         return true;
                     }
-                    
+
                     System.Diagnostics.Debug.WriteLine("AndroidAutomationService: Service not found in enabled services");
                     return false;
                 }
-                catch (System.Exception ex)
+                catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"AndroidAutomationService: Error checking accessibility service: {ex.Message}");
                     return false;

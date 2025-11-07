@@ -19,6 +19,8 @@ public partial class MainPage : ContentPage
 		InitializeComponent();
 		_accessibilityService = accessibilityService;
 
+		TournamentTypePicker.SelectedIndex = 0;
+
 		GetAppVersionNumber();
 
 		// Initialize automation service
@@ -26,7 +28,7 @@ public partial class MainPage : ContentPage
 
 		if (VConstants.IS_TEST_MODE)
 		{
-			UserIdEntry.Text = "euucamilaa";//BA.Dudamaria
+			UserIdEntry.Text = "Plymouth";//BA.Dudamaria
 		}
 	}
 
@@ -206,6 +208,13 @@ public partial class MainPage : ContentPage
 			return;
 		}
 
+		var tournamentType = TournamentTypePicker.SelectedItem?.ToString();
+		if (string.IsNullOrEmpty(tournamentType))
+		{
+			await DisplayAlert("Error", "Please select a tournament list.", "OK");
+			return;
+		}
+
 		try
 		{
 			if (_isScrapingRunning)
@@ -244,7 +253,7 @@ public partial class MainPage : ContentPage
 				{
 					try
 					{
-						var result = await _automationService.RunScrapingAsync(userId, cancellationToken);
+						var result = await _automationService.RunScrapingAsync(userId, tournamentType, cancellationToken);
 
 						// Check if cancelled
 						if (cancellationToken.IsCancellationRequested)

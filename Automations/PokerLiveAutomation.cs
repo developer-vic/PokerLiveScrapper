@@ -28,11 +28,11 @@ namespace PokerLiveScrapper.Automations
         /// <summary>
         /// Scrape contribution ranking data from Poker Live app
         /// </summary>
-        public async Task<(bool success, string message, string jsonData)> ScrapeAsync(string userId, CancellationToken cancellationToken = default)
+        public async Task<(bool success, string message, string jsonData)> ScrapeAsync(string userId, string tournamentFilter, CancellationToken cancellationToken = default)
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Starting scraping for user ID: {userId}");
+                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Starting scraping for user ID: {userId} with filter: {tournamentFilter}");
 
                 // Check cancellation
                 cancellationToken.ThrowIfCancellationRequested();
@@ -190,6 +190,7 @@ namespace PokerLiveScrapper.Automations
                 // Build final JSON structure with summary, data, and searched username
                 scrapedData["searched_username"] = userId;
                 scrapedData["summary"] = summaryDict;
+                scrapedData["tournament_filter"] = tournamentFilter;
                 scrapedData["data"] = tabDataDict;
 
                 // Convert to JSON

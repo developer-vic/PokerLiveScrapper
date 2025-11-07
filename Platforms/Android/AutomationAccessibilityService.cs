@@ -1,8 +1,10 @@
 using Android.AccessibilityServices;
 using Android.Content;
+using Android.App;
 using Android.OS;
 using Android.Views.Accessibility;
 using AndroidX.Core.View.Accessibility;
+using Android.Runtime;
 using PokerLiveScrapper.Data;
 using System.Collections.Concurrent;
 using Exception = Java.Lang.Exception;
@@ -13,6 +15,17 @@ namespace PokerLiveScrapper.Platforms.Android
     /// Android Accessibility Service for cross-app automation
     /// Main service that handles UI interactions across different apps
     /// </summary>
+    [Register("PokerLiveScrapper.Platforms.Android.AutomationAccessibilityService")]
+    [Service(
+        Permission = "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        Exported = true,
+        Enabled = true,
+        Name = "PokerLiveScrapper.Platforms.Android.AutomationAccessibilityService")]
+    [IntentFilter(new[]
+    {
+        "android.accessibilityservice.AccessibilityService"
+    })]
+    [MetaData("android.accessibilityservice", Value = "@xml/accessibility_service_config")]
     public class AutomationAccessibilityService : AccessibilityService
     {
         public static AutomationAccessibilityService? Instance { get; private set; }
