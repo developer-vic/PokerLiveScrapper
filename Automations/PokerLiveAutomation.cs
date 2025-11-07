@@ -18,6 +18,7 @@ namespace PokerLiveScrapper.Automations
     public class PokerLiveAutomation
     {
         private readonly AutomationAccessibilityService _accessibilityService;
+        string[] excludingText = [];
 
         public PokerLiveAutomation(AutomationAccessibilityService accessibilityService)
         {
@@ -27,11 +28,13 @@ namespace PokerLiveScrapper.Automations
         /// <summary>
         /// Scrape tournament data from Poker Live app following the latest flow.
         /// </summary>
-        public async Task<(bool success, string message, string jsonData)> ScrapeAsync(string userId, string tournamentFilter, CancellationToken cancellationToken = default)
+        public async Task<(bool success, string message, string jsonData)> ScrapeAsync(string liveName, string tournamentFilter, int total, CancellationToken cancellationToken = default)
         {
             try
             {
-                Debug.WriteLine($"PokerLiveAutomation: Starting scraping for live '{userId}' (filter: '{tournamentFilter}')");
+                excludingText = [liveName, "Sign in", "Details", "Structure", "Prizes", "Entries", "Level", "Blinds", "Ante", "Clock", "Name", "Table", "Seat", "Chips", "Pos", "Winnings"];
+
+                Debug.WriteLine($"PokerLiveAutomation: Starting scraping for live '{liveName}' (filter: '{tournamentFilter}')");
                 cancellationToken.ThrowIfCancellationRequested();
 
                 bool launched = _accessibilityService.CheckForegroundAndLaunchApp(VConstants.POKER_LIVE_APP_PACKAGE);
@@ -49,33 +52,32 @@ namespace PokerLiveScrapper.Automations
                     return (false, "Could not open the event tab", string.Empty);
                 }
 
-                var liveNode = await WaitForTextViewAsync(userId, true, retries: 10, delayMs: 1000, cancellationToken);
+                var liveNode = await WaitForTextViewAsync(liveName, true, retries: 10, delayMs: 1000, cancellationToken);
                 if (liveNode == null)
                 {
-                    return (false, $"Could not find live named '{userId}'", string.Empty);
+                    return (false, $"Could not find live named '{liveName}'", string.Empty);
                 }
 
                 _accessibilityService.ClickNode(liveNode);
                 await Task.Delay(3000, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string tabToSelect = ResolveTournamentTabLabel(tournamentFilter);
-                if (!await ClickTextViewAsync(tabToSelect, cancellationToken))
+                if (!await ClickTextViewAsync(tournamentFilter, cancellationToken))
                 {
-                    return (false, $"Could not find '{tabToSelect}' tab", string.Empty);
+                    return (false, $"Could not find '{tournamentFilter}' tab", string.Empty);
                 }
 
                 await Task.Delay(2000, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                bool isPrevious = tournamentFilter.Trim().Equals("previous", StringComparison.OrdinalIgnoreCase);
-                var tournaments = await ScrapeTournamentsFromListAsync(cancellationToken, isPrevious);
+                bool isPrevious = tournamentFilter.Trim().Equals("Previous Tournaments", StringComparison.OrdinalIgnoreCase);
+                var tournaments = await ScrapeTournamentsFromListAsync(cancellationToken, isPrevious, liveName, total);
 
                 var payload = new Dictionary<string, object>
                 {
-                    ["live_name"] = userId,
+                    ["live_name"] = liveName,
                     ["tournament_filter"] = tournamentFilter,
-                    ["tab_selected"] = tabToSelect,
+                    ["tab_selected"] = tournamentFilter,
                     ["scraped_at"] = DateTimeOffset.UtcNow,
                     ["tournaments_count"] = tournaments.Count,
                     ["tournaments"] = tournaments
@@ -121,7 +123,12 @@ namespace PokerLiveScrapper.Automations
 
                     if (visible.Count >= 4)
                     {
-                        int index = Math.Max(visible.Count - 4, 0);
+                        int homeIndex = Math.Max(visible.Count - 5, 0);
+                        var homeTarget = visible.ElementAtOrDefault(homeIndex);
+                        if (homeTarget != null) _accessibilityService.ClickNode(homeTarget);
+                        await Task.Delay(500, cancellationToken);
+
+                        int index = Math.Max(visible.Count - 4, 1);
                         target = visible.ElementAtOrDefault(index);
                         if (target != null)
                         {
@@ -131,7 +138,6 @@ namespace PokerLiveScrapper.Automations
                     }
 
                     target ??= visible.ElementAtOrDefault(1);
-
                     if (target != null && _accessibilityService.ClickNode(target))
                     {
                         Debug.WriteLine($"PokerLiveAutomation: Attempting to click tab '{target.Text?.ToString()}'");
@@ -169,21 +175,6 @@ namespace PokerLiveScrapper.Automations
             }
 
             return null;
-        }
-
-        private string ResolveTournamentTabLabel(string tournamentFilter)
-        {
-            if (string.IsNullOrWhiteSpace(tournamentFilter))
-            {
-                return "Tournaments";
-            }
-
-            if (tournamentFilter.Trim().Equals("previous", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Previous Tournaments";
-            }
-
-            return "Tournaments";
         }
 
         private async Task<bool> ClickTextViewAsync(string text, CancellationToken cancellationToken)
@@ -230,13 +221,14 @@ namespace PokerLiveScrapper.Automations
             return node?.Text?.ToString();
         }
 
-        private Dictionary<string, string> ExtractDetailPairs(List<AccessibilityNodeInfo> textViews)
+        private Dictionary<string, string> ExtractDetailPairs(List<AccessibilityNodeInfo> textViews, bool isPrevious)
         {
             var details = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             for (int pair = 0; pair < 9; pair++)
             {
-                int keyIndex = 6 + pair * 2;
+                int initIndex = isPrevious ? 7 : 6;
+                int keyIndex = initIndex + pair * 2;
                 int valueIndex = keyIndex + 1;
 
                 string? key = GetTextAtIndex(textViews, keyIndex)?.Trim();
@@ -266,13 +258,13 @@ namespace PokerLiveScrapper.Automations
             return $"{text}|{rect.Top}|{rect.Bottom}";
         }
 
-        private async Task<List<Dictionary<string, object>>> ScrapeTournamentsFromListAsync(CancellationToken cancellationToken, bool isPrevious)
+        private async Task<List<Dictionary<string, object>>> ScrapeTournamentsFromListAsync(CancellationToken cancellationToken, bool isPrevious, string liveName, int total)
         {
             var tournaments = new List<Dictionary<string, object>>();
             var processedIds = new HashSet<string>(StringComparer.Ordinal);
 
             int scrollAttempts = 0;
-            const int maxScrollAttempts = 8;
+            int maxScrollAttempts = 2;
 
             while (true)
             {
@@ -293,7 +285,7 @@ namespace PokerLiveScrapper.Automations
                         break;
                     }
 
-                    bool scrolled = _accessibilityService.ScrollDown();
+                    bool scrolled = _accessibilityService.SwipeUp();
                     if (!scrolled)
                     {
                         break; //end of page
@@ -321,10 +313,15 @@ namespace PokerLiveScrapper.Automations
                 await Task.Delay(3000, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var tournamentData = await ScrapeTournamentDetailPagesAsync(cancellationToken, isPrevious);
+                var tournamentData = await ScrapeTournamentDetailPagesAsync(cancellationToken, isPrevious, liveName);
                 if (tournamentData != null)
                 {
                     tournaments.Add(tournamentData);
+                    if (total != -1 && tournaments.Count >= total)
+                    {
+                        break; //in test mode, limit to specified number of tournaments
+                    }
+                    maxScrollAttempts = 2; //reset scroll attempts after successful scrape
                 }
 
                 _accessibilityService.GoBack(1, stopAtHome: false);
@@ -334,7 +331,7 @@ namespace PokerLiveScrapper.Automations
             return tournaments;
         }
 
-        private async Task<Dictionary<string, object>?> ScrapeTournamentDetailPagesAsync(CancellationToken cancellationToken, bool isPrevious)
+        private async Task<Dictionary<string, object>?> ScrapeTournamentDetailPagesAsync(CancellationToken cancellationToken, bool isPrevious, string liveName)
         {
             var textViews = GetOrderedVisibleTextViews();
             if (textViews.Count == 0)
@@ -353,10 +350,10 @@ namespace PokerLiveScrapper.Automations
             var tournament = new Dictionary<string, object>
             {
                 ["title"] = title ?? string.Empty,
-                ["details"] = ExtractDetailPairs(textViews)
+                ["details"] = ExtractDetailPairs(textViews, isPrevious)
             };
 
-            tournament["structure"] = await ExtractStructureAsync(cancellationToken);
+            tournament["structure"] = await ExtractStructureAsync(cancellationToken, liveName);
             if (isPrevious)
             {
                 tournament["prizes"] = await ExtractPrizesAsync(cancellationToken);
@@ -366,7 +363,7 @@ namespace PokerLiveScrapper.Automations
             return tournament;
         }
 
-        private async Task<List<Dictionary<string, object>>> ExtractStructureAsync(CancellationToken cancellationToken)
+        private async Task<List<Dictionary<string, object>>> ExtractStructureAsync(CancellationToken cancellationToken, string liveName)
         {
             if (!await ClickTabByContentDescriptionAsync("Structure", cancellationToken))
             {
@@ -375,8 +372,8 @@ namespace PokerLiveScrapper.Automations
             }
 
             await Task.Delay(1500, cancellationToken);
-            var texts = await CollectTextsWithScrollingAsync(6, cancellationToken);
-            return ParseStructure(texts);
+            var texts = await CollectTextsWithScrollingAsync(4, cancellationToken);
+            return ParseStructure(texts, liveName);
         }
 
         private async Task<List<Dictionary<string, string>>> ExtractPrizesAsync(CancellationToken cancellationToken)
@@ -388,7 +385,7 @@ namespace PokerLiveScrapper.Automations
             }
 
             await Task.Delay(1500, cancellationToken);
-            var texts = await CollectTextsWithScrollingAsync(4, cancellationToken);
+            var texts = await CollectTextsWithScrollingAsync(3, cancellationToken);
             return ParseFlatRows(texts, new[] { "Pos", "Winnings", "Name" });
         }
 
@@ -401,8 +398,8 @@ namespace PokerLiveScrapper.Automations
             }
 
             await Task.Delay(1500, cancellationToken);
-            var texts = await CollectTextsWithScrollingAsync(6, cancellationToken);
-            return ParseFlatRows(texts, new[] { "Name", "Table", "Seat", "Chips" });
+            var texts = await CollectTextsWithScrollingAsync(1, cancellationToken);
+            return ParseFlatRows(texts, new[] { "Name" }); /*"Table", "Seat", "Chips"*/
         }
 
         private async Task<bool> ClickTabByContentDescriptionAsync(string contentDesc, CancellationToken cancellationToken)
@@ -432,13 +429,12 @@ namespace PokerLiveScrapper.Automations
             return false;
         }
 
-        private async Task<List<string>> CollectTextsWithScrollingAsync(int maxScrollAttempts, CancellationToken cancellationToken)
+        private async Task<List<string>> CollectTextsWithScrollingAsync(int valuesLength, CancellationToken cancellationToken)
         {
             var collected = new List<string>();
             string? lastScreenLast = null;
-            int attempts = 0;
 
-            while (attempts <= maxScrollAttempts)
+            while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -456,11 +452,13 @@ namespace PokerLiveScrapper.Automations
                 int startIndex = 0;
                 if (collected.Count > 0)
                 {
-                    var lastCollected = collected.Last();
-                    int idx = texts.FindLastIndex(t => t.Equals(lastCollected, StringComparison.Ordinal));
+                    var last4itemCollected = collected.Skip(Math.Max(0, collected.Count - valuesLength)).ToList();
+                    var lastCollected = last4itemCollected.First();
+
+                    int idx = texts.FindLastIndex(t => t != null && t.Equals(lastCollected, StringComparison.Ordinal));
                     if (idx >= 0)
                     {
-                        startIndex = idx + 1;
+                        startIndex = idx + valuesLength;
                     }
                 }
 
@@ -473,30 +471,21 @@ namespace PokerLiveScrapper.Automations
                     }
                 }
 
-                var screenLast = texts.Last();
+                var last4iScreenItem = texts.Skip(Math.Max(0, texts.Count - valuesLength)).ToList();
+                var screenLast = last4iScreenItem.First();
+
                 if (screenLast != null && screenLast.Equals(lastScreenLast, StringComparison.Ordinal))
                 {
                     break;
                 }
 
-                if (attempts == maxScrollAttempts)
-                {
-                    break;
-                }
-
-                bool scrolled = _accessibilityService.ScrollDown();
-                if (!scrolled)
-                {
-                    scrolled = _accessibilityService.SwipeUp();
-                }
-
+                bool scrolled = _accessibilityService.SwipeUp();
                 if (!scrolled)
                 {
                     break;
                 }
 
                 lastScreenLast = screenLast;
-                attempts++;
                 await Task.Delay(1600, cancellationToken);
             }
 
@@ -531,17 +520,39 @@ namespace PokerLiveScrapper.Automations
                 var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < columns; i++)
                 {
-                    row[normalizedHeaders[i]] = slice[i];
+                    string text = slice[i].Trim();
+                    if (!excludingText.Any(ex => ex.Equals(text, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        row[normalizedHeaders[i]] = text;
+                    }
+                }
+
+                if (row.Count == 0)
+                {
+                    index++;
+                    continue;
                 }
 
                 results.Add(row);
                 index += columns;
+
+                if ((index + columns - 1) >= sanitized.Count && sanitized.Count > 2)
+                {
+                    string last2nd = sanitized[^2].Trim();
+                    if (last2nd.Equals("Total Prizes", StringComparison.OrdinalIgnoreCase))
+                        results.Add(new Dictionary<string, string>
+                        {
+                            ["Pos"] = "Total Prizes",
+                            ["Winnings"] = sanitized.Last()
+                        });
+                    break;
+                }
             }
 
             return results;
         }
 
-        private List<Dictionary<string, object>> ParseStructure(List<string> texts)
+        private List<Dictionary<string, object>> ParseStructure(List<string> texts, string liveName)
         {
             var sections = new List<Dictionary<string, object>>();
             if (texts.Count == 0)
@@ -592,7 +603,8 @@ namespace PokerLiveScrapper.Automations
 
                 var slice = sanitized.Skip(index).Take(4).ToList();
 
-                if (IsHeaderSlice(slice, columnNames))
+                if (IsHeaderSlice(slice, columnNames)
+                    || excludingText.Any(ex => ex.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
                 {
                     index += 4;
                     continue;

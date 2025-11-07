@@ -31,7 +31,7 @@ namespace PokerLiveScrapper.Services
         /// <summary>
         /// Run scraping automation with cancellation support
         /// </summary>
-        public async Task<(bool success, string message, string jsonData)> RunScrapingAsync(string liveName, string tournamentFilter, CancellationToken cancellationToken = default)
+        public async Task<(bool success, string message, string jsonData)> RunScrapingAsync(string liveName, string tournamentFilter, int total, CancellationToken cancellationToken = default)
         {
             System.Diagnostics.Debug.WriteLine("AutomationService: Starting scraping automation");
 
@@ -55,7 +55,7 @@ namespace PokerLiveScrapper.Services
 
                 System.Diagnostics.Debug.WriteLine($"AutomationService: Running scraping for live name: {liveName} with filter: {tournamentFilter}");
                 
-                var result = await _pokerLiveAutomation.ScrapeAsync(liveName, tournamentFilter, cancellationToken);
+                var result = await _pokerLiveAutomation.ScrapeAsync(liveName, tournamentFilter, total, cancellationToken);
                 
                 // Check if cancelled after completion
                 if (cancellationToken.IsCancellationRequested)

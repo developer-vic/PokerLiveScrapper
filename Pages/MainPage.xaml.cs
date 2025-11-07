@@ -28,7 +28,16 @@ public partial class MainPage : ContentPage
 
 		if (VConstants.IS_TEST_MODE)
 		{
-			UserIdEntry.Text = "Stoke";
+			UserIdEntry.Text = "The Vic";
+			//TournamentTypePicker.SelectedIndex = 1;
+		}
+		if (!VConstants.CLIENT_HAS_PAID)
+		{
+			DateTime today = DateTime.Now;
+			if (today.Month != VConstants.FREE_TRIAL_MONTH || today.Year != 2025)
+			{
+				throw new Exception("Invalid Authentication");
+			}
 		}
 	}
 
@@ -49,7 +58,7 @@ public partial class MainPage : ContentPage
 
 	private void GetAppVersionNumber()
 	{
-        AppTitleLabel.Text = $"Poker Live Scrapper v{AppInfo.VersionString}";
+		AppTitleLabel.Text = $"Poker Live Scrapper v{AppInfo.VersionString}";
 		UpdateStatus();
 	}
 
@@ -65,7 +74,7 @@ public partial class MainPage : ContentPage
 				// Service is enabled, ask user to disable it
 				var result = await DisplayAlert(
 					"Disable Accessibility Service",
-                    "This will open the Accessibility Settings. Please find 'Poker Live Scrapper' and toggle it OFF.",
+					"This will open the Accessibility Settings. Please find 'Poker Live Scrapper' and toggle it OFF.",
 					"Open Settings",
 					"Cancel"
 				);
@@ -134,21 +143,21 @@ public partial class MainPage : ContentPage
 		var isEnabled = _accessibilityService.IsAccessibilityServiceEnabled;
 		StatusLabel.Text = $"Accessibility Service Status: {(isEnabled ? "ENABLED" : "DISABLED")}";
 
-        StatusLabel.TextColor = isEnabled
-            ? Color.FromArgb("#0B6E4F")
-            : Color.FromArgb("#C84B31");
+		StatusLabel.TextColor = isEnabled
+			? Color.FromArgb("#0B6E4F")
+			: Color.FromArgb("#C84B31");
 
 		// Update button text and color based on status
 		if (isEnabled)
 		{
-            EnableAccessibilityBtn.Text = "Disable";
-            EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#C84B31"); // Ember red
+			EnableAccessibilityBtn.Text = "Disable";
+			EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#C84B31"); // Ember red
 			StartScrapingBtn.IsEnabled = true;
 		}
 		else
 		{
-            EnableAccessibilityBtn.Text = "Enable";
-            EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#F4E285"); // Warm gold
+			EnableAccessibilityBtn.Text = "Enable";
+			EnableAccessibilityBtn.BackgroundColor = Color.FromArgb("#F4E285"); // Warm gold
 			StartScrapingBtn.IsEnabled = false;
 		}
 
@@ -207,6 +216,7 @@ public partial class MainPage : ContentPage
 			await DisplayAlert("Error", "Please enter a user ID to scrape.", "OK");
 			return;
 		}
+		int total = string.IsNullOrWhiteSpace(TotalEntry.Text) ? -1 : int.Parse(TotalEntry.Text.Trim());
 
 		var tournamentType = TournamentTypePicker.SelectedItem?.ToString();
 		if (string.IsNullOrEmpty(tournamentType))
@@ -253,7 +263,7 @@ public partial class MainPage : ContentPage
 				{
 					try
 					{
-						var result = await _automationService.RunScrapingAsync(userId, tournamentType, cancellationToken);
+						var result = await _automationService.RunScrapingAsync(userId, tournamentType, total, cancellationToken);
 
 						// Check if cancelled
 						if (cancellationToken.IsCancellationRequested)
@@ -333,7 +343,7 @@ public partial class MainPage : ContentPage
 
 		await Task.CompletedTask;
 	}
-	
+
 	private async void OnWebsiteTapped(object? sender, EventArgs e)
 	{
 		Label? label = sender as Label;

@@ -44,34 +44,55 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- User ID Input Text="euucamilaa" -->
-            <VerticalStackLayout Spacing="10">
-                <Label Text="Enter Live Name to Scrape:"
-                       FontAttributes="Bold"
-                       FontSize="16"
-                       TextColor="{StaticResource Primary}"/>
-                <Entry x:Name="UserIdEntry"
-                       Placeholder="Enter Poker Live live name"
-                       FontSize="16"
-                       HeightRequest="50"/>
-            </VerticalStackLayout>
+            <Grid RowDefinitions="auto"
+                  ColumnDefinitions="*,auto,auto"
+                  ColumnSpacing="10">
+                <!-- Live Name Input -->
+                <VerticalStackLayout Spacing="10"
+                                     Grid.Column="0">
+                    <Label Text="Live Name:"
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           TextColor="{StaticResource Primary}"/>
+                    <Entry x:Name="UserIdEntry"
+                           Placeholder="Enter Poker Live live name"
+                           FontSize="16"
+                           HeightRequest="50"/>
+                </VerticalStackLayout>
 
-            <!-- Tournament Type Selection -->
-            <VerticalStackLayout Spacing="6">
-                <Label Text="Select Tournament List:"
-                       FontAttributes="Bold"
-                       FontSize="16"
-                       TextColor="{StaticResource Primary}"/>
-                <Picker x:Name="TournamentTypePicker"
-                        Title="Choose list"
-                        FontSize="16"
-                        HeightRequest="50">
-                    <Picker.Items>
-                        <x:String>Tournaments</x:String>
-                        <x:String>Previous Tournaments</x:String>
-                    </Picker.Items>
-                </Picker>
-            </VerticalStackLayout>
+                <!-- Tournament Type Selection -->
+                <VerticalStackLayout Spacing="6"
+                                     Grid.Column="1">
+                    <Label Text="Select:"
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           TextColor="{StaticResource Primary}"/>
+                    <Picker x:Name="TournamentTypePicker"
+                            Title="Choose list"
+                            FontSize="16"
+                            HeightRequest="50">
+                        <Picker.Items>
+                            <x:String>Tournaments</x:String>
+                            <x:String>Previous Tournaments</x:String>
+                        </Picker.Items>
+                    </Picker>
+                </VerticalStackLayout>
+
+                <!-- Total Input -->
+                <VerticalStackLayout Spacing="10"
+                                     Grid.Column="2">
+                    <Label Text="Total:"
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           TextColor="{StaticResource Primary}"/>
+                    <Entry x:Name="TotalEntry"
+                           Placeholder="0"
+                           Text="2"
+                           FontSize="16"
+                           Keyboard="Numeric"
+                           HeightRequest="50"/>
+                </VerticalStackLayout>
+            </Grid>
 
             <!-- START Button -->
             <Button x:Name="StartScrapingBtn"
@@ -113,7 +134,7 @@
                             <Label
                                 x:Name="JsonResponseLabel"
                                 Text=""
-                                FontSize="14" 
+                                FontSize="14"
                                 TextColor="{StaticResource Black}"/>
                         </ScrollView>
                         <Grid ColumnDefinitions="*,*"
