@@ -534,7 +534,7 @@ namespace PokerLiveScrapper.Platforms.Android
                     Thread.Sleep(1000);
                     if (RootInActiveWindow != null)
                     {
-                        var tabFeed = FindNodeByResourceId(RootInActiveWindow, PokerLiveSConstants.SEARCH_BUTTON_ID);
+                        var tabFeed = FindNodeByText(RootInActiveWindow, PokerLiveConstants.DASHBOARD_TAB_FEED_TEXT, true);
                         if (tabFeed != null)
                         {
                             if (stopAtHome) break; //for starting operation

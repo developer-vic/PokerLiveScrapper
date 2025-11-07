@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Net.Http;
+using Android.Graphics;
+using Android.Views.Accessibility;
 using PokerLiveScrapper.Data;
 using PokerLiveScrapper.Platforms.Android;
-using Android.Views.Accessibility;
 
 namespace PokerLiveScrapper.Automations
 {
@@ -26,410 +25,663 @@ namespace PokerLiveScrapper.Automations
         }
 
         /// <summary>
-        /// Scrape contribution ranking data from Poker Live app
+        /// Scrape tournament data from Poker Live app following the latest flow.
         /// </summary>
         public async Task<(bool success, string message, string jsonData)> ScrapeAsync(string userId, string tournamentFilter, CancellationToken cancellationToken = default)
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Starting scraping for user ID: {userId} with filter: {tournamentFilter}");
-
-                // Check cancellation
+                Debug.WriteLine($"PokerLiveAutomation: Starting scraping for live '{userId}' (filter: '{tournamentFilter}')");
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Launch Poker Live app
-                bool launched = _accessibilityService.CheckForegroundAndLaunchApp(PokerLiveSConstants.PACKAGE_NAME);
+                bool launched = _accessibilityService.CheckForegroundAndLaunchApp(VConstants.POKER_LIVE_APP_PACKAGE);
                 if (!launched)
                 {
-                    return (false, "Failed to launch Poker Live app", "");
+                    return (false, "Failed to launch Poker Live app", string.Empty);
                 }
-                // Navigate to home/feed
+
                 _accessibilityService.GoBack(10, stopAtHome: true);
+                await Task.Delay(1500, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Step 1: Find and click search button (legacy selector from sg.bigo.live:id/iv_search)
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for search button");
-                var searchButton = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.SEARCH_BUTTON_ID);
-                if (searchButton == null)
+                if (!await ClickSecondTabAsync(cancellationToken))
                 {
-                    return (false, "Could not find search button", "");
-                }
-                _accessibilityService.ClickNode(searchButton);
-                await Task.Delay(1000, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Step 2: Find search input (legacy selector sg.bigo.live:id/searchInput) - First android.widget.EditText
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for search input");
-                var searchInput = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.SEARCH_INPUT_ID);
-                if (searchInput == null)
-                {
-                    // Fallback: try to find first EditText
-                    var editTexts = _accessibilityService.FindNodesByClassName("android.widget.EditText");
-                    if (editTexts == null || editTexts.Count == 0)
-                    {
-                        return (false, "Could not find search input field", "");
-                    }
-                    searchInput = editTexts[0];
+                    return (false, "Could not open the event tab", string.Empty);
                 }
 
-                // Click and enter username
-                _accessibilityService.ClickNode(searchInput);
-                await Task.Delay(200, cancellationToken);
-                _accessibilityService.InputText(userId, 0);
-                await Task.Delay(200, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
+                var liveNode = await WaitForTextViewAsync(userId, true, retries: 10, delayMs: 1000, cancellationToken);
+                if (liveNode == null)
+                {
+                    return (false, $"Could not find live named '{userId}'", string.Empty);
+                }
 
-                // Step 3: Back(1) to hide keyboard
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Hiding keyboard");
-                _accessibilityService.GoBack(1, stopAtHome: false);
-                await Task.Delay(200, cancellationToken);
-                _accessibilityService.ClickByResourceId(PokerLiveSConstants.SEARCH_CONFIRM_ID);
-                await Task.Delay(2000, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Step 4: Click second tab (Host) - sg.bigo.live:id/uiTabTitle index 1
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for search result");
-                var searchResult = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.SEARCH_HOST_TABS_ID, 1);
-                if (searchResult == null)
-                {
-                    return (false, "Could not find Host tab", "");
-                }
-                _accessibilityService.ClickNode(searchResult);
-                await Task.Delay(5000, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                
-                //Find first profile picture and click it SEARCH_HOST_PICS_ID
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for host profile picture");
-                var profilePic = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.SEARCH_HOST_PICS_ID, 0);
-                if (profilePic == null)
-                {
-                    return (false, "Could not find host profile picture", "");
-                }
-                _accessibilityService.ClickNode(profilePic);
-                await Task.Delay(2000, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Step 5: Click contribution entry (sg.bigo.live:id/fl_contrib_entry -> sg.bigo.live:id/tv_contribute)
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for contribution entry");
-                var contribEntry = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.CONTRIB_ENTRY_ID);
-                if (contribEntry == null)
-                {
-                    // Try clicking the text directly
-                    var contribText = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.CONTRIB_TEXT_ID);
-                    if (contribText == null)
-                    {
-                        return (false, "Could not find contribution entry", "");
-                    }
-                    _accessibilityService.ClickNode(contribText);
-                }
-                else
-                {
-                    _accessibilityService.ClickNode(contribEntry);
-                }
+                _accessibilityService.ClickNode(liveNode);
                 await Task.Delay(3000, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Step 6: Find all 4 tabs (sg.bigo.live:id/uiTabTitle) - Daily, Weekly, Monthly, Overall
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Looking for tabs");
-                var scrapedData = new Dictionary<string, object>();
-
-                var tabDataDict = new Dictionary<string, List<Dictionary<string, object>>>();
-                var summaryDict = new Dictionary<string, object>();
-
-                // Define tab order and max items
-                var tabConfigs = new[]
+                string tabToSelect = ResolveTournamentTabLabel(tournamentFilter);
+                if (!await ClickTextViewAsync(tabToSelect, cancellationToken))
                 {
-                    new { Name = "Daily", MaxItems = 3 },
-                    new { Name = "Weekly", MaxItems = 3 },
-                    new { Name = "Monthly", MaxItems = 3 },
-                    new { Name = "Overall", MaxItems = VConstants.IS_TEST_MODE ? 3 : 10 }
-                };
-
-                int totalUsersScraped = 0;
-                int totalTabsScraped = 0;
-
-                for (int tabIndex = 0; tabIndex < Math.Min(tabConfigs.Length, 4); tabIndex++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var tabConfig = tabConfigs[tabIndex];
-
-                    System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Scraping {tabConfig.Name} tab");
-
-                    // Click the tab
-                    var nextTab = _accessibilityService.FindNodeByResourceId(null,
-                        PokerLiveSConstants.TAB_TITLE_ID, tabIndex);
-                    if (nextTab == null) continue;
-
-                    _accessibilityService.ClickNode(nextTab);
-                    await Task.Delay(2000, cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    // Scrape data for this tab (pass fresh rootNode context)
-                    var tabData = await ScrapeTabData(tabConfig.MaxItems, cancellationToken);
-                    tabDataDict[tabConfig.Name] = tabData;
-                    
-                    totalUsersScraped += tabData.Count;
-                    if (tabData.Count > 0)
-                        totalTabsScraped++;
-
-                    await Task.Delay(1000, cancellationToken);
+                    return (false, $"Could not find '{tabToSelect}' tab", string.Empty);
                 }
 
-                // Build summary
-                summaryDict["total_users_scraped"] = totalUsersScraped;
-                summaryDict["total_tabs_scraped"] = totalTabsScraped;
-                summaryDict["tabs"] = new Dictionary<string, int>
+                await Task.Delay(2000, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                bool isPrevious = tournamentFilter.Trim().Equals("previous", StringComparison.OrdinalIgnoreCase);
+                var tournaments = await ScrapeTournamentsFromListAsync(cancellationToken, isPrevious);
+
+                var payload = new Dictionary<string, object>
                 {
-                    { "Daily", tabDataDict.ContainsKey("Daily") ? tabDataDict["Daily"].Count : 0 },
-                    { "Weekly", tabDataDict.ContainsKey("Weekly") ? tabDataDict["Weekly"].Count : 0 },
-                    { "Monthly", tabDataDict.ContainsKey("Monthly") ? tabDataDict["Monthly"].Count : 0 },
-                    { "Overall", tabDataDict.ContainsKey("Overall") ? tabDataDict["Overall"].Count : 0 }
+                    ["live_name"] = userId,
+                    ["tournament_filter"] = tournamentFilter,
+                    ["tab_selected"] = tabToSelect,
+                    ["scraped_at"] = DateTimeOffset.UtcNow,
+                    ["tournaments_count"] = tournaments.Count,
+                    ["tournaments"] = tournaments
                 };
 
-
-                // Build final JSON structure with summary, data, and searched username
-                scrapedData["searched_username"] = userId;
-                scrapedData["summary"] = summaryDict;
-                scrapedData["tournament_filter"] = tournamentFilter;
-                scrapedData["data"] = tabDataDict;
-
-                // Convert to JSON
                 var jsonOptions = new JsonSerializerOptions
                 {
                     WriteIndented = true
                 };
-                string jsonData = JsonSerializer.Serialize(scrapedData, jsonOptions);
 
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Scraping completed successfully");
-                return (true, "Successfully scraped data", jsonData);
+                string json = JsonSerializer.Serialize(payload, jsonOptions);
+                Debug.WriteLine("PokerLiveAutomation: Scraping completed successfully");
+                return (true, "Successfully scraped tournaments", json);
             }
             catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Operation cancelled by user");
-                throw; // Re-throw to be handled by caller
+                Debug.WriteLine("PokerLiveAutomation: Operation cancelled by user");
+                throw;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Error - {ex.Message}");
-                return (false, $"Error: {ex.Message}", "");
+                Debug.WriteLine($"PokerLiveAutomation: Error - {ex.Message}");
+                return (false, $"Error: {ex.Message}", string.Empty);
             }
             finally
             {
-                // Navigate back to home
                 _accessibilityService.GoBack(10, stopAtHome: false);
             }
         }
 
-        /// <summary>
-        /// Scrape data from a specific tab
-        /// </summary>
-        private async Task<List<Dictionary<string, object>>> ScrapeTabData(int maxItems, CancellationToken cancellationToken)
+        private async Task<bool> ClickSecondTabAsync(CancellationToken cancellationToken)
         {
-            var results = new List<Dictionary<string, object>>();
-
-            // Wait for tab content to load and get fresh rootNode
-            await Task.Delay(1500, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Get all nodes and filter to only visible ones (workaround for tab switching issue)
-            var allUserNameNodes = _accessibilityService.FindNodesByResourceId(PokerLiveSConstants.USER_NAME_ID);
-            // Filter to only visible nodes (current tab content)
-            var userNameNodes = _accessibilityService.FilterVisibleNodes(allUserNameNodes);
-            if (userNameNodes == null || userNameNodes.Count == 0)
+            for (int attempt = 0; attempt < 6; attempt++)
             {
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: No user names found in tab");
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var textViews = _accessibilityService.FindNodesByClassName(PokerLiveConstants.TEXTVIEW_CLASS_NAME);
+                var visible = _accessibilityService.FilterVisibleNodes(textViews);
+
+                if (visible.Count >= 2)
+                {
+                    AccessibilityNodeInfo? target = null;
+
+                    if (visible.Count >= 4)
+                    {
+                        int index = Math.Max(visible.Count - 4, 0);
+                        target = visible.ElementAtOrDefault(index);
+                        if (target != null)
+                        {
+                            string text = target.Text?.ToString() ?? string.Empty;
+                            Debug.WriteLine($"PokerLiveAutomation: Attempting to click tab '{text}'");
+                        }
+                    }
+
+                    target ??= visible.ElementAtOrDefault(1);
+
+                    if (target != null && _accessibilityService.ClickNode(target))
+                    {
+                        Debug.WriteLine($"PokerLiveAutomation: Attempting to click tab '{target.Text?.ToString()}'");
+                        await Task.Delay(2000, cancellationToken);
+                        return true;
+                    }
+                }
+
+                await Task.Delay(500, cancellationToken);
+            }
+
+            return false;
+        }
+
+        private async Task<AccessibilityNodeInfo?> WaitForTextViewAsync(string text, bool exactMatch, int retries, int delayMs, CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < retries; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var node = FindVisibleTextViewByText(text, exactMatch);
+                if (node != null)
+                {
+                    return node;
+                }
+
+                //scroll down to load more items
+                bool scrolled = _accessibilityService.ScrollDown();
+                if (!scrolled)
+                {
+                    break;//end of page reached
+                }
+
+                await Task.Delay(delayMs, cancellationToken);
+            }
+
+            return null;
+        }
+
+        private string ResolveTournamentTabLabel(string tournamentFilter)
+        {
+            if (string.IsNullOrWhiteSpace(tournamentFilter))
+            {
+                return "Tournaments";
+            }
+
+            if (tournamentFilter.Trim().Equals("previous", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Previous Tournaments";
+            }
+
+            return "Tournaments";
+        }
+
+        private async Task<bool> ClickTextViewAsync(string text, CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var node = FindVisibleTextViewByText(text, true);
+                if (node != null && _accessibilityService.ClickNode(node))
+                {
+                    await Task.Delay(1500, cancellationToken);
+                    return true;
+                }
+
+                await Task.Delay(500, cancellationToken);
+            }
+
+            return false;
+        }
+
+        private AccessibilityNodeInfo? FindVisibleTextViewByText(string text, bool exactMatch)
+        {
+            var textViews = _accessibilityService.FindNodesByClassName(PokerLiveConstants.TEXTVIEW_CLASS_NAME);
+            var visible = _accessibilityService.FilterVisibleNodes(textViews);
+
+            return exactMatch
+                ? visible.FirstOrDefault(node => string.Equals(node.Text?.ToString()?.Trim(), text.Trim(), StringComparison.OrdinalIgnoreCase))
+                : visible.FirstOrDefault(node => node.Text?.ToString()?.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private List<AccessibilityNodeInfo> GetOrderedVisibleTextViews()
+        {
+            var nodes = _accessibilityService.FindNodesByClassName(PokerLiveConstants.TEXTVIEW_CLASS_NAME);
+            return _accessibilityService.FilterVisibleNodes(nodes);
+        }
+
+        private string? GetTextAtIndex(List<AccessibilityNodeInfo> nodes, int oneBasedIndex)
+        {
+            if (oneBasedIndex <= 0)
+                return null;
+
+            var node = nodes.ElementAtOrDefault(oneBasedIndex - 1);
+            return node?.Text?.ToString();
+        }
+
+        private Dictionary<string, string> ExtractDetailPairs(List<AccessibilityNodeInfo> textViews)
+        {
+            var details = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int pair = 0; pair < 9; pair++)
+            {
+                int keyIndex = 6 + pair * 2;
+                int valueIndex = keyIndex + 1;
+
+                string? key = GetTextAtIndex(textViews, keyIndex)?.Trim();
+                string? value = GetTextAtIndex(textViews, valueIndex)?.Trim();
+
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                details[key] = value ?? string.Empty;
+            }
+
+            return details;
+        }
+
+        private List<AccessibilityNodeInfo> GetBuyInNodes()
+        {
+            var textViews = _accessibilityService.FindNodesByClassName(PokerLiveConstants.TEXTVIEW_CLASS_NAME);
+            var visible = _accessibilityService.FilterVisibleNodes(textViews);
+            return visible.Where(node => node.Text?.ToString()?.IndexOf("Buy In:", StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        }
+
+        private string BuildNodeIdentifier(AccessibilityNodeInfo node)
+        {
+            var rect = new Android.Graphics.Rect();
+            node.GetBoundsInScreen(rect);
+            string text = node.Text?.ToString()?.Trim() ?? string.Empty;
+            return $"{text}|{rect.Top}|{rect.Bottom}";
+        }
+
+        private async Task<List<Dictionary<string, object>>> ScrapeTournamentsFromListAsync(CancellationToken cancellationToken, bool isPrevious)
+        {
+            var tournaments = new List<Dictionary<string, object>>();
+            var processedIds = new HashSet<string>(StringComparer.Ordinal);
+
+            int scrollAttempts = 0;
+            const int maxScrollAttempts = 8;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await Task.Delay(500, cancellationToken);
+
+                var buyInNodes = GetBuyInNodes();
+                var candidates = buyInNodes
+                    .Select(node => new { Node = node, Id = BuildNodeIdentifier(node) })
+                    .Where(x => !processedIds.Contains(x.Id))
+                    .ToList();
+
+                if (candidates.Count == 0)
+                {
+                    if (scrollAttempts >= maxScrollAttempts)
+                    {
+                        break;
+                    }
+
+                    bool scrolled = _accessibilityService.ScrollDown();
+                    if (!scrolled)
+                    {
+                        break; //end of page
+                    }
+
+                    scrollAttempts++;
+                    await Task.Delay(2000, cancellationToken);
+                    continue;
+                }
+
+                scrollAttempts = 0;
+                var current = candidates[0];
+                processedIds.Add(current.Id);
+
+                if (!_accessibilityService.ClickNode(current.Node))
+                {
+                    var parent = current.Node.Parent;
+                    if (parent == null || !_accessibilityService.ClickNode(parent))
+                    {
+                        Debug.WriteLine("PokerLiveAutomation: Failed to click tournament item");
+                        continue;
+                    }
+                }
+
+                await Task.Delay(3000, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var tournamentData = await ScrapeTournamentDetailPagesAsync(cancellationToken, isPrevious);
+                if (tournamentData != null)
+                {
+                    tournaments.Add(tournamentData);
+                }
+
+                _accessibilityService.GoBack(1, stopAtHome: false);
+                await Task.Delay(1500, cancellationToken);
+            }
+
+            return tournaments;
+        }
+
+        private async Task<Dictionary<string, object>?> ScrapeTournamentDetailPagesAsync(CancellationToken cancellationToken, bool isPrevious)
+        {
+            var textViews = GetOrderedVisibleTextViews();
+            if (textViews.Count == 0)
+            {
+                Debug.WriteLine("PokerLiveAutomation: No detail text views found");
+                return null;
+            }
+
+            string? title = GetTextAtIndex(textViews, 5)?.Trim();
+            if (isPrevious)
+            {
+                //previous tournaments have "Prizes" at the tabs
+                title = GetTextAtIndex(textViews, 6)?.Trim();
+            }
+
+            var tournament = new Dictionary<string, object>
+            {
+                ["title"] = title ?? string.Empty,
+                ["details"] = ExtractDetailPairs(textViews)
+            };
+
+            tournament["structure"] = await ExtractStructureAsync(cancellationToken);
+            if (isPrevious)
+            {
+                tournament["prizes"] = await ExtractPrizesAsync(cancellationToken);
+            }
+            tournament["entries"] = await ExtractEntriesAsync(cancellationToken);
+
+            return tournament;
+        }
+
+        private async Task<List<Dictionary<string, object>>> ExtractStructureAsync(CancellationToken cancellationToken)
+        {
+            if (!await ClickTabByContentDescriptionAsync("Structure", cancellationToken))
+            {
+                Debug.WriteLine("PokerLiveAutomation: Structure tab not found");
+                return new List<Dictionary<string, object>>();
+            }
+
+            await Task.Delay(1500, cancellationToken);
+            var texts = await CollectTextsWithScrollingAsync(6, cancellationToken);
+            return ParseStructure(texts);
+        }
+
+        private async Task<List<Dictionary<string, string>>> ExtractPrizesAsync(CancellationToken cancellationToken)
+        {
+            if (!await ClickTabByContentDescriptionAsync("Prizes", cancellationToken))
+            {
+                Debug.WriteLine("PokerLiveAutomation: Prizes tab not found");
+                return new List<Dictionary<string, string>>();
+            }
+
+            await Task.Delay(1500, cancellationToken);
+            var texts = await CollectTextsWithScrollingAsync(4, cancellationToken);
+            return ParseFlatRows(texts, new[] { "Pos", "Winnings", "Name" });
+        }
+
+        private async Task<List<Dictionary<string, string>>> ExtractEntriesAsync(CancellationToken cancellationToken)
+        {
+            if (!await ClickTabByContentDescriptionAsync("Entries", cancellationToken))
+            {
+                Debug.WriteLine("PokerLiveAutomation: Entries tab not found");
+                return new List<Dictionary<string, string>>();
+            }
+
+            await Task.Delay(1500, cancellationToken);
+            var texts = await CollectTextsWithScrollingAsync(6, cancellationToken);
+            return ParseFlatRows(texts, new[] { "Name", "Table", "Seat", "Chips" });
+        }
+
+        private async Task<bool> ClickTabByContentDescriptionAsync(string contentDesc, CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var viewNodes = _accessibilityService.FindNodesByClassName("android.view.View");
+                var visibleViews = _accessibilityService.FilterVisibleNodes(viewNodes);
+                var targetView = visibleViews.FirstOrDefault(node => string.Equals(node.ContentDescription?.ToString(), contentDesc, StringComparison.OrdinalIgnoreCase));
+
+                if (targetView != null && _accessibilityService.ClickNode(targetView))
+                {
+                    return true;
+                }
+
+                var textNode = FindVisibleTextViewByText(contentDesc, true);
+                if (textNode != null && _accessibilityService.ClickNode(textNode))
+                {
+                    return true;
+                }
+
+                await Task.Delay(500, cancellationToken);
+            }
+
+            return false;
+        }
+
+        private async Task<List<string>> CollectTextsWithScrollingAsync(int maxScrollAttempts, CancellationToken cancellationToken)
+        {
+            var collected = new List<string>();
+            string? lastScreenLast = null;
+            int attempts = 0;
+
+            while (attempts <= maxScrollAttempts)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var textViews = GetOrderedVisibleTextViews();
+                var texts = textViews
+                    .Select(x => x.Text?.ToString()?.Trim())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+
+                if (texts.Count == 0)
+                {
+                    break;
+                }
+
+                int startIndex = 0;
+                if (collected.Count > 0)
+                {
+                    var lastCollected = collected.Last();
+                    int idx = texts.FindLastIndex(t => t.Equals(lastCollected, StringComparison.Ordinal));
+                    if (idx >= 0)
+                    {
+                        startIndex = idx + 1;
+                    }
+                }
+
+                for (int i = startIndex; i < texts.Count; i++)
+                {
+                    var text = texts[i];
+                    if (text != null && (collected.Count == 0 || !collected.Last().Equals(text, StringComparison.Ordinal)))
+                    {
+                        collected.Add(text);
+                    }
+                }
+
+                var screenLast = texts.Last();
+                if (screenLast != null && screenLast.Equals(lastScreenLast, StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                if (attempts == maxScrollAttempts)
+                {
+                    break;
+                }
+
+                bool scrolled = _accessibilityService.ScrollDown();
+                if (!scrolled)
+                {
+                    scrolled = _accessibilityService.SwipeUp();
+                }
+
+                if (!scrolled)
+                {
+                    break;
+                }
+
+                lastScreenLast = screenLast;
+                attempts++;
+                await Task.Delay(1600, cancellationToken);
+            }
+
+            return collected;
+        }
+
+        private List<Dictionary<string, string>> ParseFlatRows(List<string> texts, string[] columnNames)
+        {
+            var results = new List<Dictionary<string, string>>();
+            if (texts.Count == 0)
+            {
                 return results;
             }
-            
-            // Get all nodes and filter to only visible ones (workaround for tab switching issue)
-            var allContributionNodes = _accessibilityService.FindNodesByResourceId(PokerLiveSConstants.CONTRIBUTION_AMOUNT_ID);
-            var allLevelNodes = _accessibilityService.FindNodesByResourceId(PokerLiveSConstants.USER_LEVEL_ID);
-            // Filter to only visible nodes (current tab content)
-            var contributionNodes = _accessibilityService.FilterVisibleNodes(allContributionNodes);
-            var levelNodes = _accessibilityService.FilterVisibleNodes(allLevelNodes);
 
-            int itemCount = Math.Min(maxItems, userNameNodes.Count);
-            System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Found {userNameNodes.Count} visible users (from {allUserNameNodes?.Count ?? 0} total), scraping {itemCount} items");
+            int columns = columnNames.Length;
+            var normalizedHeaders = columnNames.Select(c => c.Trim()).ToArray();
+            var sanitized = texts.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
 
-            for (int i = 0; i < itemCount; i++)
+            int index = 0;
+            while (index + columns - 1 < sanitized.Count)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var userData = new Dictionary<string, object>();
+                var slice = sanitized.Skip(index).Take(columns).ToList();
 
-                // Get contribution and level data BEFORE clicking (to avoid re-fetching)
-                string amount = "";
-                string userLevel = "";
-
-                if (contributionNodes != null && i < contributionNodes.Count)
+                bool isHeader = slice.Select(s => s.Trim().ToLowerInvariant())
+                                     .SequenceEqual(normalizedHeaders.Select(h => h.ToLowerInvariant()));
+                if (isHeader)
                 {
-                    amount = contributionNodes[i].Text?.ToString() ?? "";
-                }
-                if (levelNodes != null && i < levelNodes.Count)
-                {
-                    userLevel = levelNodes[i].Text?.ToString() ?? "";
+                    index += columns;
+                    continue;
                 }
 
-                // Get username (display name) from tv_name 
-                var userNameNode = userNameNodes[i];
-                var rawUsername = userNameNode.Text?.ToString() ?? "";
-
-                // Fix emoji handling - decode unicode escape sequences to actual emojis
-                string username = DecodeUnicodeEmojis(rawUsername);
-
-                // Click on the username to go to profile page
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Clicking username {i + 1}: {username}");
-                _accessibilityService.ClickNode(userNameNode);
-                await Task.Delay(1000, cancellationToken); // Wait for profile page to load
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Find the actual user_id from the profile ID element
-                string actualUserId = "";
-                var profileIdNode = _accessibilityService.FindNodeByResourceId(null, PokerLiveSConstants.PROFILE_ID_RESOURCE_ID);
-                if (profileIdNode != null)
+                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < columns; i++)
                 {
-                    var rawUserId = profileIdNode.Text?.ToString() ?? "";
-                    // Extract only the ID value (remove "ID: " prefix if present)
-                    actualUserId = ExtractUserIdValue(rawUserId);
-                    System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Found user_id: {actualUserId}");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Could not find profile ID element");
+                    row[normalizedHeaders[i]] = slice[i];
                 }
 
-                // Go back to the list
-                _accessibilityService.GoBack(1, stopAtHome: false);
-                await Task.Delay(200, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Store all data
-                userData["user_id"] = actualUserId;
-                userData["username"] = username; // Store username separately
-                userData["amount"] = amount;
-                userData["rank_position"] = i + 1;
-                userData["user_level"] = userLevel;
-
-                // Extract profile picture URL using the actual user_id
-                if (!string.IsNullOrEmpty(actualUserId))
-                {
-                    userData["profile_picture_url"] = await ExtractProfilePictureUrlAsync(actualUserId, cancellationToken) ?? "";
-                }
-                else
-                {
-                    userData["profile_picture_url"] = "";
-                }
-
-                results.Add(userData);
+                results.Add(row);
+                index += columns;
             }
 
             return results;
         }
 
-        /// <summary>
-        /// Extract profile picture URL from Poker Live web page (legacy implementation)
-        /// Fetches HTML from https://www.bigo.tv/user/{user_id} and extracts first img src from div class="img-preview"
-        /// </summary>
-        private async Task<string?> ExtractProfilePictureUrlAsync(string user_id, CancellationToken cancellationToken)
+        private List<Dictionary<string, object>> ParseStructure(List<string> texts)
         {
-            try
+            var sections = new List<Dictionary<string, object>>();
+            if (texts.Count == 0)
             {
-                if (string.IsNullOrEmpty(user_id))
-                    return null;
+                return sections;
+            }
 
-                // Build URL
-                string profileUrl = $"https://www.bigo.tv/user/{Uri.EscapeDataString(user_id)}";
-                    System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Fetching profile picture from: {profileUrl}");
+            var sanitized = texts.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+            var columnNames = new[] { "Level", "Blinds", "Ante", "Clock" };
 
-                // Create HttpClient
-                using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(10);
+            int index = 0;
+            while (index + 3 < sanitized.Count && !IsHeaderRow(sanitized, index, columnNames))
+            {
+                index++;
+            }
 
-                // Fetch HTML
-                var response = await httpClient.GetAsync(profileUrl, cancellationToken);
-                if (!response.IsSuccessStatusCode)
+            if (index + 3 < sanitized.Count)
+            {
+                index += 4;
+            }
+            else
+            {
+                index = 0;
+            }
+
+            var currentSection = new StructureSection("default");
+
+            while (index < sanitized.Count)
+            {
+                string value = sanitized[index];
+
+                if (ContainsMinText(value) && !IsColumnName(value, columnNames))
                 {
-                    System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Failed to fetch profile page. Status: {response.StatusCode}");
-                    return null;
-                }
-
-                var htmlContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                // Find div with class="img-preview"
-                // Pattern: <div class="img-preview"...>...<img src="..."...
-                var divPattern = @"<div[^>]*class\s*=\s*[""']img-preview[""'][^>]*>(.*?)</div>";
-                var divMatch = Regex.Match(htmlContent, divPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-                if (divMatch.Success)
-                {
-                    var divContent = divMatch.Groups[1].Value;
-
-                    // Find first img tag src in the div
-                    var imgPattern = @"<img[^>]*src\s*=\s*[""']([^""']+)[""']";
-                    var imgMatch = Regex.Match(divContent, imgPattern, RegexOptions.IgnoreCase);
-
-                    if (imgMatch.Success)
+                    if (currentSection.Rows.Count > 0 || !sections.Any())
                     {
-                        var imgSrc = imgMatch.Groups[1].Value;
-
-                        // Split by ? and take [0] to remove query parameters
-                        var profilePictureUrl = imgSrc.Split('?')[0].Trim();
-
-                        System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Found profile picture URL: {profilePictureUrl}");
-                        return profilePictureUrl;
+                        sections.Add(currentSection.ToDictionary());
                     }
+
+                    currentSection = new StructureSection(value.Trim());
+                    index++;
+                    continue;
                 }
 
-                System.Diagnostics.Debug.WriteLine("PokerLiveAutomation: Could not find img-preview div or img tag");
-                return null;
+                if (index + 3 >= sanitized.Count)
+                {
+                    break;
+                }
+
+                var slice = sanitized.Skip(index).Take(4).ToList();
+
+                if (IsHeaderSlice(slice, columnNames))
+                {
+                    index += 4;
+                    continue;
+                }
+
+                currentSection.Rows.Add(new StructureRow
+                {
+                    Level = slice[0],
+                    Blinds = slice[1],
+                    Ante = slice[2],
+                    Clock = slice[3]
+                });
+
+                index += 4;
             }
-            catch (Exception ex)
+
+            if (currentSection.Rows.Count > 0 || !sections.Any())
             {
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Error extracting profile picture URL: {ex.Message}");
-                return null;
+                sections.Add(currentSection.ToDictionary());
+            }
+
+            return sections;
+        }
+
+        private bool ContainsMinText(string value)
+        {
+            return value.IndexOf("min", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool IsColumnName(string value, IEnumerable<string> columnNames)
+        {
+            return columnNames.Any(name => name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private bool IsHeaderRow(List<string> texts, int index, string[] columnNames)
+        {
+            if (index + columnNames.Length - 1 >= texts.Count)
+                return false;
+
+            var slice = texts.Skip(index).Take(columnNames.Length).ToList();
+            return IsHeaderSlice(slice, columnNames);
+        }
+
+        private bool IsHeaderSlice(List<string> slice, string[] columnNames)
+        {
+            if (slice.Count != columnNames.Length)
+                return false;
+
+            return slice.Select(t => t.Trim().ToLowerInvariant())
+                        .SequenceEqual(columnNames.Select(c => c.Trim().ToLowerInvariant()));
+        }
+
+        private class StructureSection
+        {
+            public StructureSection(string name)
+            {
+                Name = string.IsNullOrWhiteSpace(name) ? "default" : name;
+                Rows = new List<StructureRow>();
+            }
+
+            public string Name { get; }
+            public List<StructureRow> Rows { get; }
+
+            public Dictionary<string, object> ToDictionary()
+            {
+                return new Dictionary<string, object>
+                {
+                    ["name"] = Name,
+                    ["levels"] = Rows.Select(row => row.ToDictionary()).ToList()
+                };
             }
         }
 
-        /// <summary>
-        /// Extract the actual user ID value from text that may contain "ID: " prefix
-        /// Example: "ID: RA_H2019" -> "RA_H2019"
-        /// </summary>
-        private string ExtractUserIdValue(string text)
+        private class StructureRow
         {
-            if (string.IsNullOrEmpty(text))
-                return text;
+            public string Level { get; set; } = string.Empty;
+            public string Blinds { get; set; } = string.Empty;
+            public string Ante { get; set; } = string.Empty;
+            public string Clock { get; set; } = string.Empty;
 
-            // Remove "ID: " prefix if present (case-insensitive)
-            var trimmed = text.Trim();
-            if (trimmed.Contains(":"))
+            public Dictionary<string, string> ToDictionary()
             {
-                var array = trimmed.Split(':');
-                var result = array.Length > 1 ? array[1].TrimStart() : "";
-                return result;
-            }
-
-            return trimmed;
-        }
-
-        /// <summary>
-        /// Decode unicode escape sequences (like \uD83C) to actual emojis
-        /// Handles both surrogate pairs and single unicode characters
-        /// </summary>
-        private string DecodeUnicodeEmojis(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return text;
-
-            try
-            {
-                // Use JSON deserialization to decode all unicode escapes, including surrogate pairs and mixed sequences
-                // Wrap the string in quotes to make it a valid JSON string
-                string jsonWrapped = $"\"{text.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
-                return JsonSerializer.Deserialize<string>(jsonWrapped) ?? text;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"PokerLiveAutomation: Error decoding unicode emojis: {ex.Message}");
-                return text; // Return original text if decoding fails
+                return new Dictionary<string, string>
+                {
+                    ["level"] = Level,
+                    ["blinds"] = Blinds,
+                    ["ante"] = Ante,
+                    ["clock"] = Clock
+                };
             }
         }
     }
