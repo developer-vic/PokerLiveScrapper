@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PokerLiveScrapper.MainPage">
+
+    <ScrollView>
+        <VerticalStackLayout
+            Margin="0,0,0,10"
+            Padding="20,5"
+            Spacing="10">
+
+            <!-- Header -->
+            <Label x:Name="AppTitleLabel"
+                   Text="Bigo Live Scrapper"
+                   Style="{StaticResource Headline}"
+                   HorizontalOptions="Center"/>
+            <Label Text="programmergwin.com"
+                   TextColor="Blue"
+                   Margin="0,0,0,10"
+                   TextDecorations="Underline"
+                   HorizontalOptions="End">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnWebsiteTapped"/>
+                </Label.GestureRecognizers>
+            </Label>
+
+            <!-- Accessibility Status -->
+            <Border
+                Stroke="#E0E0E0"
+                StrokeThickness="1"
+                BackgroundColor="White"
+                Padding="15,5">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Accessibility Status"
+                           FontAttributes="Bold"
+                           TextColor="#1F4F5B"/>
+                    <Label x:Name="StatusLabel"
+                           Text="Checking..."
+                           FontAttributes="Bold"/>
+                    <Button x:Name="EnableAccessibilityBtn"
+                            Text="Enable"
+                            TextColor="White"
+                            Clicked="OnEnableAccessibilityClicked"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- User ID Input Text="euucamilaa" -->
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Enter User ID to Scrape:"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="{StaticResource Primary}"/>
+                <Entry x:Name="UserIdEntry"
+                       Placeholder="Enter Bigo Live user ID"
+                       FontSize="16"
+                       HeightRequest="50"/>
+            </VerticalStackLayout>
+
+            <!-- START Button -->
+            <Button x:Name="StartScrapingBtn"
+                    Text="START"
+                    BackgroundColor="#1F4F5B"
+                    TextColor="White"
+                    Margin="0,10"
+                    HeightRequest="50"
+                    FontSize="18"
+                    FontAttributes="Bold"
+                    Clicked="OnStartScrapingClicked"
+                    IsEnabled="False"/>
+
+            <!-- Loading Indicator -->
+            <ActivityIndicator
+                x:Name="LoadingIndicator"
+                IsRunning="False"
+                IsVisible="False"
+                Color="{StaticResource Primary}"
+                HeightRequest="50"/>
+
+            <!-- JSON Response Display -->
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Scraped Data (JSON):"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="{StaticResource Primary}"/>
+                <Border
+                    Stroke="{StaticResource Primary}"
+                    StrokeThickness="2"
+                    StrokeShape="RoundRectangle 10"
+                    Padding="15"
+                    BackgroundColor="White">
+                    <VerticalStackLayout Spacing="10">
+                        <ScrollView
+                            HeightRequest="200"
+                            VerticalScrollBarVisibility="Always"
+                            HorizontalScrollBarVisibility="Never">
+                            <Label
+                                x:Name="JsonResponseLabel"
+                                Text=""
+                                FontSize="14"
+                                FontFamily="Courier"
+                                TextColor="{StaticResource Black}"/>
+                        </ScrollView>
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <Button
+                                Grid.Column="0"
+                                Text="📋 Copy"
+                                Clicked="OnCopyJsonClicked"
+                                BackgroundColor="{StaticResource Primary}"
+                                Margin="0,10,0,0"/>
+                            <Button
+                                Grid.Column="1"
+                                Text="🔍 Full Screen"
+                                Clicked="OnViewFullScreenClicked"
+                                BackgroundColor="{StaticResource Secondary}"
+                                TextColor="{StaticResource Primary}"
+                                Margin="0,10,0,0"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
